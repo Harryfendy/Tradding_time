@@ -84,17 +84,13 @@ def muat_data():
     try:
         df = pd.read_csv("data/hasil_akhir.csv")
         
-        # Cari kolom waktu
-        if 'time' in df.columns:
-            df['time'] = pd.to_datetime(df['time'])
-        elif 'timestamp' in df.columns:
-            df['time'] = pd.to_datetime(df['timestamp'])
-        else:
-            st.error("❌ Butuh kolom 'time' atau 'timestamp' di data!")
+        # ✅ Sesuai format datamu langsung
+        if 'time' not in df.columns:
+            st.error(f"❌ Kolom tersedia: {', '.join(df.columns)}")
             return None
         
-        # Buat kolom baru
-        df['menit_buka'] = df['time'].dt.strftime('%H:%M')  # 00:01, 00:02...
+        df['time'] = pd.to_datetime(df['time'])
+        df['menit_buka'] = df['time'].dt.strftime('%H:%M')  # 00:00, 00:01, ...
         df['hari_nama'] = df['time'].dt.day_name()
         df = df.sort_values('time').reset_index(drop=True)
         return df
@@ -137,12 +133,11 @@ for waktu_buka in daftar_menit:
         
         for idx, row in data_waktu.iterrows():
             buka = row['open']
-            # Ambil data ke depan
             akhir = min(idx + 1 + menit_maju, len(df_saring))
             ke_depan = df_saring.iloc[idx+1 : akhir]
             
             if len(ke_depan) < 2:
-                continue  # Kurang data
+                continue
             
             tertinggi = ke_depan['high'].max()
             terendah = ke_depan['low'].min()
@@ -157,7 +152,6 @@ for waktu_buka in daftar_menit:
                 turun += 1
                 total += 1
             elif naik_cukup and turun_cukup:
-                # Keduanya tercapai → pilih yang lebih dulu
                 idx_naik = ke_depan[ke_depan['high'] >= buka + rentang].index.min()
                 idx_turun = ke_depan[ke_depan['low'] <= buka - rentang].index.min()
                 if idx_naik < idx_turun:
