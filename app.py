@@ -74,85 +74,107 @@ with st.sidebar:
                 hari_pilih.append(e)
 
     st.divider()
-    teks_pip = st.text_input("Rentang Pip", value="50,100,150,200,250")
+    teks_pip = st.text_input("Target Pip", value="50,100,150,200,250")
     daftar_pip = [int(x.strip()) for x in teks_pip.split(",")]
+    menit_maju = st.number_input("Lihat Ke Depan (Menit)", min_value=5, value=60)
 
 # ============== MUAT DATA ==============
 @st.cache_data(ttl=3600)
 def muat_data():
     try:
         df = pd.read_csv("data/hasil_akhir.csv")
-        # Tampilkan nama kolom untuk cek
-        st.caption(f"📋 Kolom tersedia: {', '.join(df.columns)}")
+        
+        # Cari kolom waktu
+        if 'time' in df.columns:
+            df['time'] = pd.to_datetime(df['time'])
+        elif 'timestamp' in df.columns:
+            df['time'] = pd.to_datetime(df['timestamp'])
+        else:
+            st.error("❌ Butuh kolom 'time' atau 'timestamp' di data!")
+            return None
+        
+        # Buat kolom baru
+        df['menit_buka'] = df['time'].dt.strftime('%H:%M')  # 00:01, 00:02...
+        df['hari_nama'] = df['time'].dt.day_name()
+        df = df.sort_values('time').reset_index(drop=True)
         return df
     except FileNotFoundError:
         st.error("❌ File data/hasil_akhir.csv TIDAK DITEMUKAN!")
         return None
 
 df = muat_data()
-
 if df is None:
     st.stop()
 
-# ✅ Data sudah punya kolom 'hari' & 'jam' — langsung pakai!
-if 'hari' not in df.columns or 'jam' not in df.columns:
-    st.error("❌ File harus punya kolom: hari, jam, open, high, low, close")
-    st.stop()
-
-# Saring data sesuai hari
+# Saring sesuai hari
 df_saring = df.copy()
 if hari_pilih:
     if isinstance(hari_pilih, list):
-        df_saring = df_saring[df_saring['hari'].isin(hari_pilih)]
+        df_saring = df_saring[df_saring['hari_nama'].isin(hari_pilih)]
     else:
-        df_saring = df_saring[df_saring['hari'] == hari_pilih]
+        df_saring = df_saring[df_saring['hari_nama'] == hari_pilih]
 
-# ============== HITUNG PERSENTASE NAIK/TURUN ==============
+# ============== HITUNG PERSENTASE PER MENIT ==============
+st.subheader("📋 Ringkasan")
+st.info(f"""
+✅ Total Data: {len(df_saring):,} baris
+✅ Target Pip: {', '.join(map(str, daftar_pip))}
+✅ Lihat ke depan: {menit_maju} menit
+""")
+
+daftar_menit = sorted(df_saring['menit_buka'].unique())
 hasil_peta = []
 
-# Ambil semua data urut berdasarkan jam
-for jam in sorted(df_saring['jam'].unique()):
-    per_jam = df_saring[df_saring['jam'] == jam].copy()
-    baris = {"Jam": f"{jam:02d}:00"}
+for waktu_buka in daftar_menit:
+    data_waktu = df_saring[df_saring['menit_buka'] == waktu_buka]
+    baris = {"Waktu Buka": waktu_buka}
     
     for pip in daftar_pip:
-        rentang = pip / 100  # 50 pip = 0.5 poin harga XAUUSD
-        hitung_naik = 0
-        hitung_turun = 0
-        hitung_total = 0
+        rentang = pip / 100  # 50 pip = 0.5 poin harga
+        total = 0
+        naik = 0
+        turun = 0
         
-        for _, row in per_jam.iterrows():
+        for idx, row in data_waktu.iterrows():
             buka = row['open']
-            tertinggi = row['high']
-            terendah = row['low']
+            # Ambil data ke depan
+            akhir = min(idx + 1 + menit_maju, len(df_saring))
+            ke_depan = df_saring.iloc[idx+1 : akhir]
             
-            # Cek apakah mencapai target pip ke atas
+            if len(ke_depan) < 2:
+                continue  # Kurang data
+            
+            tertinggi = ke_depan['high'].max()
+            terendah = ke_depan['low'].min()
+            
             naik_cukup = (tertinggi - buka) >= rentang
-            # Cek apakah mencapai target pip ke bawah
             turun_cukup = (buka - terendah) >= rentang
             
             if naik_cukup and not turun_cukup:
-                hitung_naik += 1
-                hitung_total += 1
+                naik += 1
+                total += 1
             elif turun_cukup and not naik_cukup:
-                hitung_turun += 1
-                hitung_total += 1
+                turun += 1
+                total += 1
             elif naik_cukup and turun_cukup:
-                # Keduanya tercapai → ambil yang lebih dulu/kuat
-                if (tertinggi - buka) > (buka - terendah):
-                    hitung_naik += 1
+                # Keduanya tercapai → pilih yang lebih dulu
+                idx_naik = ke_depan[ke_depan['high'] >= buka + rentang].index.min()
+                idx_turun = ke_depan[ke_depan['low'] <= buka - rentang].index.min()
+                if idx_naik < idx_turun:
+                    naik += 1
                 else:
-                    hitung_turun += 1
-                hitung_total += 1
+                    turun += 1
+                total += 1
         
-        if hitung_total > 0:
-            persen_naik = (hitung_naik / hitung_total) * 100
-            if persen_naik >= 55:  # Batas aman
-                baris[f"{pip} Pip"] = f"UP {persen_naik:.1f}%"
-            elif persen_naik <= 45:
-                baris[f"{pip} Pip"] = f"DOWN {100-persen_naik:.1f}%"
+        if total > 0:
+            pct_naik = (naik / total) * 100
+            pct_turun = (turun / total) * 100
+            if pct_naik >= 55:
+                baris[f"{pip} Pip"] = f"UP {pct_naik:.1f}%"
+            elif pct_turun >= 55:
+                baris[f"{pip} Pip"] = f"DOWN {pct_turun:.1f}%"
             else:
-                baris[f"{pip} Pip"] = f"— {persen_naik:.0f}% —"
+                baris[f"{pip} Pip"] = f"— {pct_naik:.0f}% —"
         else:
             baris[f"{pip} Pip"] = "—"
     
@@ -161,13 +183,6 @@ for jam in sorted(df_saring['jam'].unique()):
 df_peta = pd.DataFrame(hasil_peta)
 
 # ============== TAMPILAN ==============
-st.subheader("📋 Ringkasan")
-st.info(f"""
-✅ Total data: {len(df_saring):,} baris
-✅ Cara Hitung: {mode}
-✅ Rentang Pip: {', '.join(map(str, daftar_pip))}
-""")
-
 st.subheader("🗺️ Peta Waktu XAUUSD")
 
 def warna_sel(val):
@@ -176,11 +191,11 @@ def warna_sel(val):
         return "background-color:#b7f0c8; color:#0b6623; font-weight:bold; text-align:center"
     elif "DOWN" in s:
         return "background-color:#f8c8cb; color:#8b0000; font-weight:bold; text-align:center"
-    return "text-align:center"
+    return "background-color:#f0f0f0; color:#666; text-align:center"
 
 st.dataframe(
     df_peta.style.map(warna_sel),
     use_container_width=True,
     hide_index=True,
-    height=700
+    height=750
 )
