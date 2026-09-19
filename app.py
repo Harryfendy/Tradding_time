@@ -109,29 +109,50 @@ if hari_pilih:
 
 # ============== HITUNG PERSENTASE NAIK/TURUN ==============
 hasil_peta = []
+
+# Ambil semua data urut berdasarkan jam
 for jam in sorted(df_saring['jam'].unique()):
-    per_jam = df_saring[df_saring['jam'] == jam]
+    per_jam = df_saring[df_saring['jam'] == jam].copy()
     baris = {"Jam": f"{jam:02d}:00"}
     
     for pip in daftar_pip:
-        rentang = pip / 100  # 50 pip = 0.50
+        rentang = pip / 100  # 50 pip = 0.5 poin harga XAUUSD
         hitung_naik = 0
+        hitung_turun = 0
         hitung_total = 0
         
         for _, row in per_jam.iterrows():
-            naik = (row['high'] - row['open']) >= rentang
-            turun = (row['open'] - row['low']) >= rentang
-            if naik or turun:
+            buka = row['open']
+            tertinggi = row['high']
+            terendah = row['low']
+            
+            # Cek apakah mencapai target pip ke atas
+            naik_cukup = (tertinggi - buka) >= rentang
+            # Cek apakah mencapai target pip ke bawah
+            turun_cukup = (buka - terendah) >= rentang
+            
+            if naik_cukup and not turun_cukup:
+                hitung_naik += 1
                 hitung_total += 1
-                if naik:
+            elif turun_cukup and not naik_cukup:
+                hitung_turun += 1
+                hitung_total += 1
+            elif naik_cukup and turun_cukup:
+                # Keduanya tercapai → ambil yang lebih dulu/kuat
+                if (tertinggi - buka) > (buka - terendah):
                     hitung_naik += 1
+                else:
+                    hitung_turun += 1
+                hitung_total += 1
         
         if hitung_total > 0:
-            persen = (hitung_naik / hitung_total) * 100
-            if persen >= 50:
-                baris[f"{pip} Pip"] = f"UP {persen:.1f}%"
+            persen_naik = (hitung_naik / hitung_total) * 100
+            if persen_naik >= 55:  # Batas aman
+                baris[f"{pip} Pip"] = f"UP {persen_naik:.1f}%"
+            elif persen_naik <= 45:
+                baris[f"{pip} Pip"] = f"DOWN {100-persen_naik:.1f}%"
             else:
-                baris[f"{pip} Pip"] = f"DOWN {100-persen:.1f}%"
+                baris[f"{pip} Pip"] = f"— {persen_naik:.0f}% —"
         else:
             baris[f"{pip} Pip"] = "—"
     
