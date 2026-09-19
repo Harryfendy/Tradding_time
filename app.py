@@ -82,17 +82,21 @@ with st.sidebar:
 def muat_data():
     try:
         df = pd.read_csv("data/hasil_akhir.csv")
-        df['time'] = pd.to_datetime(df['time'])
-        df['hari'] = df['time'].dt.day_name()
-        df['jam'] = df['time'].dt.hour
+        # Tampilkan nama kolom untuk cek
+        st.caption(f"📋 Kolom tersedia: {', '.join(df.columns)}")
         return df
     except FileNotFoundError:
+        st.error("❌ File data/hasil_akhir.csv TIDAK DITEMUKAN!")
         return None
 
 df = muat_data()
 
 if df is None:
-    st.warning("⚠️ Data belum tersedia. Jalankan proses_data.py dulu!")
+    st.stop()
+
+# ✅ Data sudah punya kolom 'hari' & 'jam' — langsung pakai!
+if 'hari' not in df.columns or 'jam' not in df.columns:
+    st.error("❌ File harus punya kolom: hari, jam, open, high, low, close")
     st.stop()
 
 # Saring data sesuai hari
@@ -110,11 +114,11 @@ for jam in sorted(df_saring['jam'].unique()):
     baris = {"Jam": f"{jam:02d}:00"}
     
     for pip in daftar_pip:
-        # Hitung apakah harga naik/turun mencapai target pip
+        rentang = pip / 100  # 50 pip = 0.50
         hitung_naik = 0
         hitung_total = 0
+        
         for _, row in per_jam.iterrows():
-            rentang = pip / 100  # 50 pip = 0.50
             naik = (row['high'] - row['open']) >= rentang
             turun = (row['open'] - row['low']) >= rentang
             if naik or turun:
@@ -138,9 +142,9 @@ df_peta = pd.DataFrame(hasil_peta)
 # ============== TAMPILAN ==============
 st.subheader("📋 Ringkasan")
 st.info(f"""
-✅ Rentang: {tgl_mulai.strftime('%d %b %Y')} — {tgl_akhir.strftime('%d %b %Y')}
+✅ Total data: {len(df_saring):,} baris
 ✅ Cara Hitung: {mode}
-✅ Total baris data: {len(df_saring):,}
+✅ Rentang Pip: {', '.join(map(str, daftar_pip))}
 """)
 
 st.subheader("🗺️ Peta Waktu XAUUSD")
