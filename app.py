@@ -74,7 +74,7 @@ with st.sidebar:
                 hari_pilih.append(e)
 
     st.divider()
-    teks_pip = st.text_input("Target Pip", value="50,100,150,200,250")
+    teks_pip = st.text_input("Target Pip", value="5,10,15,20,25")
     daftar_pip = [int(x.strip()) for x in teks_pip.split(",")]
     menit_maju = st.number_input("Lihat Ke Depan (Menit)", min_value=5, value=60)
 
@@ -84,13 +84,12 @@ def muat_data():
     try:
         df = pd.read_csv("data/hasil_akhir.csv")
         
-        # ✅ Sesuai format datamu langsung
         if 'time' not in df.columns:
             st.error(f"❌ Kolom tersedia: {', '.join(df.columns)}")
             return None
         
         df['time'] = pd.to_datetime(df['time'])
-        df['menit_buka'] = df['time'].dt.strftime('%H:%M')  # 00:00, 00:01, ...
+        df['menit_buka'] = df['time'].dt.strftime('%H:%M')
         df['hari_nama'] = df['time'].dt.day_name()
         df = df.sort_values('time').reset_index(drop=True)
         return df
@@ -114,6 +113,7 @@ if hari_pilih:
 st.subheader("📋 Ringkasan")
 st.info(f"""
 ✅ Total Data: {len(df_saring):,} baris
+✅ Aturan: 1 Pip = 0.1 harga
 ✅ Target Pip: {', '.join(map(str, daftar_pip))}
 ✅ Lihat ke depan: {menit_maju} menit
 """)
@@ -126,7 +126,7 @@ for waktu_buka in daftar_menit:
     baris = {"Waktu Buka": waktu_buka}
     
     for pip in daftar_pip:
-        rentang = pip / 100  # 50 pip = 0.5 poin harga
+        rentang = pip / 10  # ✅ 1 pip = 0.1 → 5 pip = 0.5, 10 pip = 1.0 dst
         total = 0
         naik = 0
         turun = 0
