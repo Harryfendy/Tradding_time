@@ -63,14 +63,33 @@ with st.sidebar:
     ])
     hari_pilih = None
     if mode == "📅 Hari yang Sama Saja":
-        hari_pilih = st.selectbox("Pilih Hari:", ["Senin","Selasa","Rabu","Kamis","Jumat"])
+        hari_pilih = st.selectbox("Pilih Hari:", [
+            "Senin", "Selasa", "Rabu", "Kamis", "Jumat"
+        ])
+        # Peta ke bahasa Inggris
+        peta_hari = {
+            "Senin": "Monday",
+            "Selasa": "Tuesday",
+            "Rabu": "Wednesday",
+            "Kamis": "Thursday",
+            "Jumat": "Friday"
+        }
+        hari_pilih = peta_hari[hari_pilih]
+
     elif mode == "🔍 Pilih Hari Tertentu":
         hari_pilih = []
-        if st.checkbox("Senin",True): hari_pilih.append("Senin")
-        if st.checkbox("Selasa",True): hari_pilih.append("Selasa")
-        if st.checkbox("Rabu",True): hari_pilih.append("Rabu")
-        if st.checkbox("Kamis",True): hari_pilih.append("Kamis")
-        if st.checkbox("Jumat",True): hari_pilih.append("Jumat")
+        peta_hari = {
+            "Senin": "Monday",
+            "Selasa": "Tuesday",
+            "Rabu": "Wednesday",
+            "Kamis": "Thursday",
+            "Jumat": "Friday"
+        }
+        if st.checkbox("Senin", True): hari_pilih.append(peta_hari["Senin"])
+        if st.checkbox("Selasa", True): hari_pilih.append(peta_hari["Selasa"])
+        if st.checkbox("Rabu", True): hari_pilih.append(peta_hari["Rabu"])
+        if st.checkbox("Kamis", True): hari_pilih.append(peta_hari["Kamis"])
+        if st.checkbox("Jumat", True): hari_pilih.append(peta_hari["Jumat"])
 
     st.divider()
     waktu_mulai = st.time_input("Waktu Mulai", value=datetime(2026,1,1,2,0))
@@ -79,7 +98,7 @@ with st.sidebar:
     teks_pip = st.text_input("Rentang Pip", value="50,100,150,200,250")
     daftar_pip = [int(x.strip()) for x in teks_pip.split(",")]
 
-# ============== MUAT & TAMPILKAN DATA ==============
+# ============== MUAT DATA ==============
 @st.cache_data(ttl=3600)
 def muat_data():
     try:
@@ -98,8 +117,16 @@ st.info(f"""
 """)
 
 if df is None:
-    st.warning("⚠️ Data belum tersedia. Jalankan /update dari Telegram di Server Master untuk membuat data!")
+    st.warning("⚠️ Data belum tersedia. Unggah file data/hasil_akhir.csv ke GitHub!")
     st.stop()
+
+# Saring data sesuai hari yang dipilih
+df_saring = df.copy()
+if hari_pilih:
+    if isinstance(hari_pilih, list):
+        df_saring = df_saring[df_saring['hari'].isin(hari_pilih)]
+    else:
+        df_saring = df_saring[df_saring['hari'] == hari_pilih]
 
 # Pewarnaan tabel
 def warna_sel(val):
@@ -113,7 +140,7 @@ def warna_sel(val):
 
 st.subheader("📊 Peta Hasil")
 st.dataframe(
-    df.style.applymap(warna_sel),
+    df_saring.style.map(warna_sel),
     use_container_width=True,
     hide_index=True,
     height=600
