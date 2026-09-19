@@ -74,7 +74,7 @@ with st.sidebar:
                 hari_pilih.append(e)
 
     st.divider()
-    teks_pip = st.text_input("Target Pip", value="5,10,15,20,25")
+    teks_pip = st.text_input("Target Pip", value="50,100,150,200,250")
     daftar_pip = [int(x.strip()) for x in teks_pip.split(",")]
     menit_maju = st.number_input("Lihat Ke Depan (Menit)", min_value=5, value=60)
 
@@ -126,7 +126,7 @@ for waktu_buka in daftar_menit:
     baris = {"Waktu Buka": waktu_buka}
     
     for pip in daftar_pip:
-        rentang = pip / 10  # ✅ 1 pip = 0.1 → 5 pip = 0.5, 10 pip = 1.0 dst
+        rentang = pip / 10  # ✅ 50 pip = 5.0 | 100 pip = 10.0 dst
         total = 0
         naik = 0
         turun = 0
