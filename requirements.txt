@@ -1,4 +1,3 @@
-streamlit==1.35.0,<2.0.0
-pandas==2.0.0,<3.0.0
-numpy==1.24.0,<3.0.0
-pytelegrambotapi==4.22.0
+streamlit
+pandas==2.2.0
+numpy==2.0.0
